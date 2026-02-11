@@ -1,0 +1,11 @@
+.env
+
+wp-content/uploads/
+wp-content/upgrade/
+wp-content/cache/
+
+wp-content/plugins/*
+!wp-content/plugins/oliveb2b-core/
+
+wp-content/themes/*
+!wp-content/themes/generatepress-child/

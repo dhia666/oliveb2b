@@ -1,0 +1,21 @@
+# Permissions Matrix (Draft)
+
+## Access Levels
+- Guest: brief summaries only.
+- Logged-in: full details and contact visibility.
+
+## Role Capabilities
+| Capability | Guest | Buyer | Supplier (Enterprise) | Supplier (Private) | Professional | Admin |
+|---|---|---|---|---|---|---|
+| View summaries | Yes | Yes | Yes | Yes | Yes | Yes |
+| View full details | No | Yes | Yes | Yes | Yes | Yes |
+| View supplier identity/contact | No | Yes | Yes | Yes | Yes | Yes |
+| Create RFQ | No | Yes | No | No | No | Yes |
+| Create Offer | No | No | Yes | Yes | Yes | Yes |
+| Respond to RFQ | No | No | Yes | Yes | Yes | Yes |
+| Edit own profile | No | Yes | Yes | Yes | Yes | Yes |
+| Manage others | No | No | No | No | No | Yes |
+
+## Notes
+- No admin intervention in buyer-supplier interactions.
+- No payments or commissions.
