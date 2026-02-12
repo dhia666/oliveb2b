@@ -21,10 +21,12 @@
 - WP Cerber: 9.6.11
   - Reason: Security, login protection, and hardening.
   - Source: Installed from vendor ZIP (plugin closed on wordpress.org).
+- Polylang (free): 3.7.7
+  - Reason: Multilingual management with free/non-subscription option.
 
 ## Multilingual
 - Language switcher UI is implemented in `oliveb2b-core` with 22 languages (Arabic RTL included).
-- Translation/content plugin selection is TBD (must be free and no subscription).
+- Language URLs are wired to Polylang when active; fallback uses `/[lang]/` paths.
 
 ## Local Dev
 - Docker-based local environment preferred.

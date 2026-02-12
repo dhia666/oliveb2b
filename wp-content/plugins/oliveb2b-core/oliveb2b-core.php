@@ -162,7 +162,7 @@ function oliveb2b_language_switcher_markup() {
     foreach ( $languages as $lang ) {
         $is_current = $current === $lang['code'];
         $label = $lang['label'];
-        $url = apply_filters( 'oliveb2b_language_url', home_url( '/' . $lang['code'] . '/' ), $lang );
+        $url = apply_filters( 'oliveb2b_language_url', $lang['url'], $lang );
         $dir = isset( $lang['dir'] ) ? $lang['dir'] : 'ltr';
         $items[] = sprintf(
             '<li class="oliveb2b-lang-item%1$s"><a href="%2$s" lang="%3$s" dir="%4$s">%5$s</a></li>',
@@ -181,6 +181,22 @@ function oliveb2b_language_switcher_markup() {
 }
 
 function oliveb2b_get_languages() {
+    if ( function_exists( 'pll_the_languages' ) ) {
+        $raw = pll_the_languages( array( 'raw' => 1 ) );
+        if ( is_array( $raw ) ) {
+            $languages = array();
+            foreach ( $raw as $data ) {
+                $languages[] = array(
+                    'code' => isset( $data['slug'] ) ? $data['slug'] : '',
+                    'label' => isset( $data['name'] ) ? $data['name'] : '',
+                    'url' => isset( $data['url'] ) ? $data['url'] : home_url( '/' ),
+                    'dir' => ! empty( $data['rtl'] ) ? 'rtl' : 'ltr',
+                );
+            }
+            return apply_filters( 'oliveb2b_language_list', $languages );
+        }
+    }
+
     $languages = array(
         array( 'code' => 'en', 'label' => 'English' ),
         array( 'code' => 'fr', 'label' => 'Français' ),
@@ -206,10 +222,25 @@ function oliveb2b_get_languages() {
         array( 'code' => 'ar', 'label' => 'العربية', 'dir' => 'rtl' ),
     );
 
+    $languages = array_map(
+        function ( $lang ) {
+            $lang['url'] = home_url( '/' . $lang['code'] . '/' );
+            return $lang;
+        },
+        $languages
+    );
+
     return apply_filters( 'oliveb2b_language_list', $languages );
 }
 
 function oliveb2b_get_current_language_code() {
+    if ( function_exists( 'pll_current_language' ) ) {
+        $lang = pll_current_language( 'slug' );
+        if ( $lang ) {
+            return $lang;
+        }
+    }
+
     $path = trim( wp_parse_url( home_url( add_query_arg( array() ) ), PHP_URL_PATH ), '/' );
     $segments = explode( '/', $path );
     $candidate = isset( $segments[0] ) ? $segments[0] : 'en';
