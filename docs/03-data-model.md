@@ -1,20 +1,20 @@
 # Data Model (Draft)
 
 ## Core Entities (CPTs)
-- Supplier
+- Supplier (`olive_supplier`)
   - Represents Supplier (Enterprise/Private) and Professional profiles.
-- Offer
+- Offer (`olive_offer`)
   - Listings published by suppliers/professionals.
-- RFQ
+- RFQ (`olive_rfq`)
   - Requests for quotation created by buyers.
 
 ## Taxonomies
-- Country
+- Country (`olive_country`)
 - Region/City
 - Industry / Category
-- Supplier Type (Enterprise, Private, Professional)
-- Employees (size ranges)
-- Verification Status
+- Supplier Type (`olive_supplier_type`)
+- Employees (`olive_employees`)
+- Verification Status (meta: `olive_verified`)
 - Languages
 
 ## Key Fields (Custom Fields)
