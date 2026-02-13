@@ -31,7 +31,10 @@ add_action( 'admin_post_oliveb2b_update_submission', 'oliveb2b_handle_update_sub
 add_action( 'admin_post_nopriv_oliveb2b_update_submission', 'oliveb2b_handle_update_submission' );
 add_action( 'admin_post_oliveb2b_delete_submission', 'oliveb2b_handle_delete_submission' );
 add_action( 'admin_post_nopriv_oliveb2b_delete_submission', 'oliveb2b_handle_delete_submission' );
+add_action( 'admin_post_oliveb2b_send_interaction', 'oliveb2b_handle_send_interaction' );
+add_action( 'admin_post_nopriv_oliveb2b_send_interaction', 'oliveb2b_handle_send_interaction' );
 add_filter( 'the_content', 'oliveb2b_gate_single_content_for_guests', 20 );
+add_filter( 'the_content', 'oliveb2b_append_interaction_form', 25 );
 add_filter( 'the_title', 'oliveb2b_gate_single_supplier_title_for_guests', 20, 2 );
 
 function oliveb2b_register_cpts() {
@@ -89,6 +92,20 @@ function oliveb2b_register_cpts() {
             'capability_type' => array( 'olive_rfq', 'olive_rfqs' ),
             'capabilities' => oliveb2b_get_post_type_capabilities( 'olive_rfq', 'olive_rfqs' ),
             'map_meta_cap' => true,
+        )
+    );
+
+    register_post_type(
+        'olive_interaction',
+        array(
+            'labels' => array(
+                'name' => 'Interactions',
+                'singular_name' => 'Interaction',
+            ),
+            'public' => false,
+            'show_ui' => false,
+            'show_in_rest' => false,
+            'supports' => array( 'title', 'editor', 'author' ),
         )
     );
 }
@@ -492,6 +509,146 @@ function oliveb2b_gate_single_supplier_title_for_guests( $title, $post_id ) {
     }
 
     return 'Supplier profile (login to view)';
+}
+
+function oliveb2b_append_interaction_form( $content ) {
+    if ( is_admin() || ! is_user_logged_in() ) {
+        return $content;
+    }
+
+    if ( ! is_singular( array( 'olive_supplier', 'olive_offer', 'olive_rfq' ) ) || ! in_the_loop() || ! is_main_query() ) {
+        return $content;
+    }
+
+    $post_id = get_the_ID();
+    $post    = get_post( $post_id );
+    if ( ! $post || (int) $post->post_author === (int) get_current_user_id() ) {
+        return $content;
+    }
+
+    if ( ! oliveb2b_can_user_interact_with_post( get_current_user_id(), $post ) ) {
+        return $content;
+    }
+
+    $subject_placeholder = 'olive_rfq' === $post->post_type ? 'Response subject' : 'Inquiry subject';
+    $button_label        = 'olive_rfq' === $post->post_type ? 'Send response' : 'Contact now';
+    $notice              = oliveb2b_get_interaction_notice();
+
+    ob_start();
+    ?>
+    <section class="oliveb2b-submit oliveb2b-interaction-box">
+        <h3><?php echo esc_html( 'olive_rfq' === $post->post_type ? 'Respond to RFQ' : 'Direct Contact' ); ?></h3>
+        <?php if ( $notice ) : ?>
+            <div class="oliveb2b-form-notice <?php echo esc_attr( $notice['class'] ); ?>"><?php echo esc_html( $notice['message'] ); ?></div>
+        <?php endif; ?>
+        <form class="oliveb2b-submit-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'oliveb2b_send_interaction_' . $post_id, 'oliveb2b_nonce' ); ?>
+            <input type="hidden" name="action" value="oliveb2b_send_interaction" />
+            <input type="hidden" name="post_id" value="<?php echo esc_attr( $post_id ); ?>" />
+            <input type="hidden" name="redirect_to" value="<?php echo esc_url( get_permalink( $post_id ) ); ?>" />
+            <label>Subject<input type="text" name="subject" required maxlength="180" placeholder="<?php echo esc_attr( $subject_placeholder ); ?>" /></label>
+            <label>Message<textarea name="message" rows="6" required></textarea></label>
+            <button type="submit"><?php echo esc_html( $button_label ); ?></button>
+        </form>
+    </section>
+    <?php
+    return $content . ob_get_clean();
+}
+
+function oliveb2b_get_interaction_notice() {
+    if ( ! isset( $_GET['olive_interaction_status'] ) ) {
+        return null;
+    }
+
+    $status = sanitize_key( wp_unslash( $_GET['olive_interaction_status'] ) );
+    $map    = array(
+        'sent'           => array( 'class' => 'is-success', 'message' => 'Message sent successfully.' ),
+        'login_required' => array( 'class' => 'is-error', 'message' => 'Please login to send messages.' ),
+        'no_permission'  => array( 'class' => 'is-error', 'message' => 'You cannot contact this listing.' ),
+        'invalid_nonce'  => array( 'class' => 'is-error', 'message' => 'Session expired. Please retry.' ),
+        'validation'     => array( 'class' => 'is-error', 'message' => 'Subject and message are required.' ),
+        'delivery_fail'  => array( 'class' => 'is-error', 'message' => 'Message could not be delivered.' ),
+    );
+
+    return isset( $map[ $status ] ) ? $map[ $status ] : null;
+}
+
+function oliveb2b_handle_send_interaction() {
+    $redirect = isset( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : home_url( '/' );
+    $post_id  = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+    $post     = $post_id ? get_post( $post_id ) : null;
+
+    if ( ! is_user_logged_in() || ! $post ) {
+        wp_safe_redirect( add_query_arg( 'olive_interaction_status', 'login_required', $redirect ) );
+        exit;
+    }
+
+    $nonce = isset( $_POST['oliveb2b_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['oliveb2b_nonce'] ) ) : '';
+    if ( ! wp_verify_nonce( $nonce, 'oliveb2b_send_interaction_' . $post_id ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_interaction_status', 'invalid_nonce', $redirect ) );
+        exit;
+    }
+
+    if ( (int) $post->post_author === (int) get_current_user_id() || ! oliveb2b_can_user_interact_with_post( get_current_user_id(), $post ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_interaction_status', 'no_permission', $redirect ) );
+        exit;
+    }
+
+    $subject = isset( $_POST['subject'] ) ? sanitize_text_field( wp_unslash( $_POST['subject'] ) ) : '';
+    $message = isset( $_POST['message'] ) ? wp_kses_post( wp_unslash( $_POST['message'] ) ) : '';
+
+    if ( '' === $subject || '' === wp_strip_all_tags( $message ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_interaction_status', 'validation', $redirect ) );
+        exit;
+    }
+
+    $recipient_user = get_user_by( 'id', $post->post_author );
+    if ( ! $recipient_user || empty( $recipient_user->user_email ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_interaction_status', 'delivery_fail', $redirect ) );
+        exit;
+    }
+
+    $sender      = wp_get_current_user();
+    $post_label  = get_the_title( $post_id );
+    $mail_subject = '[OliveB2B] ' . $subject;
+    $mail_body    = "Listing: {$post_label}\nURL: " . get_permalink( $post_id ) . "\n\nFrom: {$sender->display_name} ({$sender->user_email})\n\n" . wp_strip_all_tags( $message );
+    $mail_headers = array( 'Reply-To: ' . $sender->display_name . ' <' . $sender->user_email . '>' );
+
+    $mail_sent = wp_mail( $recipient_user->user_email, $mail_subject, $mail_body, $mail_headers );
+
+    wp_insert_post(
+        array(
+            'post_type'    => 'olive_interaction',
+            'post_status'  => 'private',
+            'post_title'   => $subject,
+            'post_content' => $message,
+            'post_author'  => get_current_user_id(),
+            'meta_input'   => array(
+                'olive_related_post_id' => (string) $post_id,
+                'olive_recipient_user'  => (string) $recipient_user->ID,
+                'olive_delivery_status' => $mail_sent ? 'sent' : 'failed',
+            ),
+        )
+    );
+
+    wp_safe_redirect( add_query_arg( 'olive_interaction_status', $mail_sent ? 'sent' : 'delivery_fail', $redirect ) );
+    exit;
+}
+
+function oliveb2b_can_user_interact_with_post( $user_id, $post ) {
+    if ( ! $user_id || ! $post ) {
+        return false;
+    }
+
+    if ( 'olive_rfq' === $post->post_type ) {
+        return user_can( $user_id, 'create_olive_offers' );
+    }
+
+    if ( in_array( $post->post_type, array( 'olive_supplier', 'olive_offer' ), true ) ) {
+        return user_can( $user_id, 'create_olive_rfqs' ) || user_can( $user_id, 'create_olive_offers' );
+    }
+
+    return false;
 }
 
 function oliveb2b_offer_form_shortcode() {

@@ -41,6 +41,12 @@ WordPress project for the OliveB2B B2B marketplace.
 - Quick links are rendered for logged-in users in the header.
 - Links are role/capability-based (`Search`, `Submit RFQ`, `Submit Offer`, `My Submissions`).
 
+## Direct Interaction
+- Logged-in users can interact directly on single listing pages:
+  - Respond to RFQs (supplier/professional capability)
+  - Contact suppliers/offers (buyer or supplier/professional capability)
+- Messages are emailed directly to listing owner and logged as private `olive_interaction` records.
+
 ## Repo Structure
 - `docs/` reference documentation
 - `wp-content/themes/generatepress-child/` child theme
