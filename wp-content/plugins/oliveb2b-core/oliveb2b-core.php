@@ -26,6 +26,10 @@ add_action( 'admin_post_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submissio
 add_action( 'admin_post_nopriv_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
 add_action( 'admin_post_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
 add_action( 'admin_post_nopriv_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
+add_action( 'admin_post_oliveb2b_update_submission', 'oliveb2b_handle_update_submission' );
+add_action( 'admin_post_nopriv_oliveb2b_update_submission', 'oliveb2b_handle_update_submission' );
+add_action( 'admin_post_oliveb2b_delete_submission', 'oliveb2b_handle_delete_submission' );
+add_action( 'admin_post_nopriv_oliveb2b_delete_submission', 'oliveb2b_handle_delete_submission' );
 add_filter( 'the_content', 'oliveb2b_gate_single_content_for_guests', 20 );
 add_filter( 'the_title', 'oliveb2b_gate_single_supplier_title_for_guests', 20, 2 );
 
@@ -163,6 +167,7 @@ function oliveb2b_register_shortcodes() {
     add_shortcode( 'oliveb2b_search_results', 'oliveb2b_search_results_shortcode' );
     add_shortcode( 'oliveb2b_offer_form', 'oliveb2b_offer_form_shortcode' );
     add_shortcode( 'oliveb2b_rfq_form', 'oliveb2b_rfq_form_shortcode' );
+    add_shortcode( 'oliveb2b_my_submissions', 'oliveb2b_my_submissions_shortcode' );
 }
 
 function oliveb2b_register_cli_commands() {
@@ -596,6 +601,245 @@ function oliveb2b_find_current_user_supplier_profile_id() {
     );
 
     return ! empty( $supplier_ids ) ? (int) $supplier_ids[0] : 0;
+}
+
+function oliveb2b_my_submissions_shortcode() {
+    if ( ! is_user_logged_in() ) {
+        return '<section class="oliveb2b-submit"><h3>My Submissions</h3><p><a href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Login to manage your submissions.</a></p></section>';
+    }
+
+    $tab       = isset( $_GET['olive_tab'] ) ? sanitize_key( wp_unslash( $_GET['olive_tab'] ) ) : 'offer';
+    $tab       = in_array( $tab, array( 'offer', 'rfq' ), true ) ? $tab : 'offer';
+    $edit_id   = isset( $_GET['olive_edit'] ) ? absint( wp_unslash( $_GET['olive_edit'] ) ) : 0;
+    $notice    = oliveb2b_get_dashboard_notice();
+    $base_url  = remove_query_arg( array( 'olive_dashboard_status', 'olive_edit' ) );
+    $offers_q  = oliveb2b_get_user_submissions_query( 'olive_offer' );
+    $rfqs_q    = oliveb2b_get_user_submissions_query( 'olive_rfq' );
+
+    ob_start();
+    ?>
+    <section class="oliveb2b-submit oliveb2b-dashboard">
+        <h3>My Submissions</h3>
+        <?php if ( $notice ) : ?>
+            <div class="oliveb2b-form-notice <?php echo esc_attr( $notice['class'] ); ?>"><?php echo esc_html( $notice['message'] ); ?></div>
+        <?php endif; ?>
+        <div class="oliveb2b-tabs" role="tablist">
+            <a class="oliveb2b-tab <?php echo 'offer' === $tab ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'olive_tab', 'offer', $base_url ) ); ?>">Offers (<?php echo esc_html( $offers_q->found_posts ); ?>)</a>
+            <a class="oliveb2b-tab <?php echo 'rfq' === $tab ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'olive_tab', 'rfq', $base_url ) ); ?>">RFQs (<?php echo esc_html( $rfqs_q->found_posts ); ?>)</a>
+        </div>
+        <?php if ( $edit_id > 0 ) : ?>
+            <?php echo oliveb2b_render_dashboard_edit_form( $edit_id, $tab, $base_url ); ?>
+        <?php endif; ?>
+        <?php echo oliveb2b_render_dashboard_list( $tab, $offers_q, $rfqs_q, $base_url ); ?>
+    </section>
+    <?php
+    wp_reset_postdata();
+    return ob_get_clean();
+}
+
+function oliveb2b_get_dashboard_notice() {
+    if ( ! isset( $_GET['olive_dashboard_status'] ) ) {
+        return null;
+    }
+
+    $status = sanitize_key( wp_unslash( $_GET['olive_dashboard_status'] ) );
+    $map    = array(
+        'updated'         => array( 'class' => 'is-success', 'message' => 'Submission updated.' ),
+        'deleted'         => array( 'class' => 'is-success', 'message' => 'Submission deleted.' ),
+        'validation_error'=> array( 'class' => 'is-error', 'message' => 'Please fill all required fields.' ),
+        'invalid_nonce'   => array( 'class' => 'is-error', 'message' => 'Session expired. Please retry.' ),
+        'no_permission'   => array( 'class' => 'is-error', 'message' => 'You cannot edit this submission.' ),
+        'not_found'       => array( 'class' => 'is-error', 'message' => 'Submission not found.' ),
+        'save_error'      => array( 'class' => 'is-error', 'message' => 'Unable to save changes.' ),
+    );
+
+    return isset( $map[ $status ] ) ? $map[ $status ] : null;
+}
+
+function oliveb2b_get_user_submissions_query( $post_type ) {
+    return new WP_Query(
+        array(
+            'post_type'      => $post_type,
+            'post_status'    => array( 'publish', 'draft', 'pending' ),
+            'author'         => get_current_user_id(),
+            'posts_per_page' => 20,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+        )
+    );
+}
+
+function oliveb2b_render_dashboard_list( $tab, WP_Query $offers_q, WP_Query $rfqs_q, $base_url ) {
+    $query   = 'offer' === $tab ? $offers_q : $rfqs_q;
+    $post_ty = 'offer' === $tab ? 'olive_offer' : 'olive_rfq';
+
+    if ( ! $query->have_posts() ) {
+        return '<p class="oliveb2b-empty">No submissions yet in this tab.</p>';
+    }
+
+    ob_start();
+    echo '<div class="oliveb2b-dashboard-list">';
+    while ( $query->have_posts() ) {
+        $query->the_post();
+        $post_id = get_the_ID();
+        $edit_url = add_query_arg(
+            array(
+                'olive_tab'  => $tab,
+                'olive_edit' => $post_id,
+            ),
+            $base_url
+        );
+        ?>
+        <article class="oliveb2b-card">
+            <h4><?php echo esc_html( get_the_title() ); ?></h4>
+            <div class="oliveb2b-card-meta">
+                <span class="oliveb2b-pill"><?php echo esc_html( ucfirst( get_post_status( $post_id ) ) ); ?></span>
+                <span class="oliveb2b-pill"><?php echo esc_html( get_the_date() ); ?></span>
+            </div>
+            <p><?php echo esc_html( get_the_excerpt() ); ?></p>
+            <div class="oliveb2b-dashboard-actions">
+                <a class="oliveb2b-dashboard-link" href="<?php echo esc_url( $edit_url ); ?>">Edit</a>
+                <?php if ( current_user_can( 'delete_post', $post_id ) ) : ?>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <?php wp_nonce_field( 'oliveb2b_delete_submission_' . $post_id, 'oliveb2b_nonce' ); ?>
+                        <input type="hidden" name="action" value="oliveb2b_delete_submission" />
+                        <input type="hidden" name="post_id" value="<?php echo esc_attr( $post_id ); ?>" />
+                        <input type="hidden" name="post_type" value="<?php echo esc_attr( $post_ty ); ?>" />
+                        <input type="hidden" name="redirect_to" value="<?php echo esc_url( $base_url ); ?>" />
+                        <button type="submit" class="oliveb2b-delete-button">Delete</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </article>
+        <?php
+    }
+    echo '</div>';
+    return ob_get_clean();
+}
+
+function oliveb2b_render_dashboard_edit_form( $post_id, $tab, $base_url ) {
+    $post = get_post( $post_id );
+    if ( ! $post || ! in_array( $post->post_type, array( 'olive_offer', 'olive_rfq' ), true ) ) {
+        return '<div class="oliveb2b-form-notice is-error">Submission not found.</div>';
+    }
+
+    if ( (int) $post->post_author !== (int) get_current_user_id() || ! current_user_can( 'edit_post', $post_id ) ) {
+        return '<div class="oliveb2b-form-notice is-error">You cannot edit this submission.</div>';
+    }
+
+    $country_terms = wp_get_post_terms( $post_id, 'olive_country', array( 'fields' => 'slugs' ) );
+    $type_terms    = wp_get_post_terms( $post_id, 'olive_supplier_type', array( 'fields' => 'slugs' ) );
+    $country_slug  = ! empty( $country_terms ) ? $country_terms[0] : '';
+    $type_slug     = ! empty( $type_terms ) ? $type_terms[0] : '';
+    $cancel_url    = remove_query_arg( 'olive_edit', add_query_arg( 'olive_tab', $tab, $base_url ) );
+
+    ob_start();
+    ?>
+    <div class="oliveb2b-dashboard-edit">
+        <h4>Edit Submission</h4>
+        <form class="oliveb2b-submit-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <?php wp_nonce_field( 'oliveb2b_update_submission_' . $post_id, 'oliveb2b_nonce' ); ?>
+            <input type="hidden" name="action" value="oliveb2b_update_submission" />
+            <input type="hidden" name="post_id" value="<?php echo esc_attr( $post_id ); ?>" />
+            <input type="hidden" name="post_type" value="<?php echo esc_attr( $post->post_type ); ?>" />
+            <input type="hidden" name="redirect_to" value="<?php echo esc_url( add_query_arg( 'olive_tab', $tab, $base_url ) ); ?>" />
+            <label>Title<input type="text" name="title" required maxlength="180" value="<?php echo esc_attr( $post->post_title ); ?>" /></label>
+            <label>Summary<textarea name="summary" rows="3" required><?php echo esc_textarea( $post->post_excerpt ); ?></textarea></label>
+            <label>Description<textarea name="description" rows="8" required><?php echo esc_textarea( $post->post_content ); ?></textarea></label>
+            <label>Country<?php echo oliveb2b_taxonomy_select( 'olive_country', 'country', $country_slug ); ?></label>
+            <?php if ( 'olive_offer' === $post->post_type ) : ?>
+                <label>Supplier type<?php echo oliveb2b_taxonomy_select( 'olive_supplier_type', 'supplier_type', $type_slug ); ?></label>
+            <?php endif; ?>
+            <div class="oliveb2b-dashboard-actions">
+                <button type="submit">Save changes</button>
+                <a class="oliveb2b-dashboard-link" href="<?php echo esc_url( $cancel_url ); ?>">Cancel</a>
+            </div>
+        </form>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+function oliveb2b_handle_update_submission() {
+    $redirect = isset( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : home_url( '/' );
+    $post_id  = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+    $post     = $post_id ? get_post( $post_id ) : null;
+
+    if ( ! is_user_logged_in() || ! $post ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'not_found', $redirect ) );
+        exit;
+    }
+    if ( (int) $post->post_author !== (int) get_current_user_id() || ! current_user_can( 'edit_post', $post_id ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'no_permission', $redirect ) );
+        exit;
+    }
+
+    $nonce = isset( $_POST['oliveb2b_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['oliveb2b_nonce'] ) ) : '';
+    if ( ! wp_verify_nonce( $nonce, 'oliveb2b_update_submission_' . $post_id ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'invalid_nonce', $redirect ) );
+        exit;
+    }
+
+    $title       = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
+    $summary     = isset( $_POST['summary'] ) ? sanitize_textarea_field( wp_unslash( $_POST['summary'] ) ) : '';
+    $description = isset( $_POST['description'] ) ? wp_kses_post( wp_unslash( $_POST['description'] ) ) : '';
+    $country     = isset( $_POST['country'] ) ? sanitize_title( wp_unslash( $_POST['country'] ) ) : '';
+
+    if ( '' === $title || '' === $summary || '' === wp_strip_all_tags( $description ) || '' === $country ) {
+        wp_safe_redirect( add_query_arg( array( 'olive_dashboard_status' => 'validation_error', 'olive_edit' => $post_id ), $redirect ) );
+        exit;
+    }
+
+    $updated = wp_update_post(
+        array(
+            'ID'           => $post_id,
+            'post_title'   => $title,
+            'post_excerpt' => $summary,
+            'post_content' => $description,
+        ),
+        true
+    );
+
+    if ( is_wp_error( $updated ) ) {
+        wp_safe_redirect( add_query_arg( array( 'olive_dashboard_status' => 'save_error', 'olive_edit' => $post_id ), $redirect ) );
+        exit;
+    }
+
+    wp_set_post_terms( $post_id, array( $country ), 'olive_country', false );
+    if ( 'olive_offer' === $post->post_type ) {
+        $supplier_type = isset( $_POST['supplier_type'] ) ? sanitize_title( wp_unslash( $_POST['supplier_type'] ) ) : '';
+        if ( '' !== $supplier_type ) {
+            wp_set_post_terms( $post_id, array( $supplier_type ), 'olive_supplier_type', false );
+        }
+    }
+
+    wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'updated', remove_query_arg( 'olive_edit', $redirect ) ) );
+    exit;
+}
+
+function oliveb2b_handle_delete_submission() {
+    $redirect = isset( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : home_url( '/' );
+    $post_id  = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+    $post     = $post_id ? get_post( $post_id ) : null;
+
+    if ( ! is_user_logged_in() || ! $post ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'not_found', $redirect ) );
+        exit;
+    }
+    if ( (int) $post->post_author !== (int) get_current_user_id() || ! current_user_can( 'delete_post', $post_id ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'no_permission', $redirect ) );
+        exit;
+    }
+
+    $nonce = isset( $_POST['oliveb2b_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['oliveb2b_nonce'] ) ) : '';
+    if ( ! wp_verify_nonce( $nonce, 'oliveb2b_delete_submission_' . $post_id ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'invalid_nonce', $redirect ) );
+        exit;
+    }
+
+    wp_delete_post( $post_id, true );
+    wp_safe_redirect( add_query_arg( 'olive_dashboard_status', 'deleted', remove_query_arg( 'olive_edit', $redirect ) ) );
+    exit;
 }
 
 function oliveb2b_search_results_shortcode() {
@@ -1078,7 +1322,20 @@ function oliveb2b_cli_seed_data( $args, $assoc_args ) {
         );
     }
 
+    $dashboard_page = get_page_by_path( 'marketplace-my-submissions' );
+    if ( ! $dashboard_page ) {
+        wp_insert_post(
+            array(
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => 'My Submissions',
+                'post_name'    => 'marketplace-my-submissions',
+                'post_content' => "<!-- wp:shortcode -->\n[oliveb2b_my_submissions]\n<!-- /wp:shortcode -->",
+            )
+        );
+    }
+
     if ( defined( 'WP_CLI' ) && WP_CLI ) {
-        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, and submit page created.' );
+        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, submit page, and dashboard page created.' );
     }
 }

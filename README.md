@@ -31,9 +31,11 @@ WordPress project for the OliveB2B B2B marketplace.
 ## Frontend Submission
 - Search page: `http://localhost:8080/marketplace-search/`
 - Submit page: `http://localhost:8080/marketplace-submit/`
+- My submissions page: `http://localhost:8080/marketplace-my-submissions/`
 - Gutenberg shortcodes:
   - `[oliveb2b_offer_form]`
   - `[oliveb2b_rfq_form]`
+  - `[oliveb2b_my_submissions]`
 
 ## Repo Structure
 - `docs/` reference documentation

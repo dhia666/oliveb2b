@@ -25,3 +25,4 @@
   - RFQ creation capability: `create_olive_rfqs` granted to buyer role + admin.
   - Guest gating on single Supplier/Offer/RFQ pages: summary only + login prompt.
   - Frontend shortcodes for submissions: `[oliveb2b_offer_form]`, `[oliveb2b_rfq_form]`.
+  - Frontend dashboard for own content management: `[oliveb2b_my_submissions]`.

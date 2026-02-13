@@ -265,6 +265,53 @@
   color: #991b1b;
 }
 
+.oliveb2b-dashboard {
+  margin-top: 24px;
+}
+
+.oliveb2b-dashboard-list {
+  display: grid;
+  gap: 12px;
+}
+
+.oliveb2b-dashboard-edit {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.oliveb2b-dashboard-edit h4 {
+  margin: 0 0 10px;
+}
+
+.oliveb2b-dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.oliveb2b-dashboard-actions form {
+  margin: 0;
+}
+
+.oliveb2b-dashboard-link {
+  font-size: 13px;
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.oliveb2b-delete-button {
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: #991b1b;
+  color: #fff;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
   .oliveb2b-search-grid {
     grid-template-columns: 1fr;
