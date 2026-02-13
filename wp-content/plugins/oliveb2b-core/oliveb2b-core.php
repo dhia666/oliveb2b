@@ -22,6 +22,7 @@ add_action( 'init', 'oliveb2b_register_cli_commands' );
 add_action( 'init', 'oliveb2b_maybe_sync_roles' );
 add_action( 'wp_enqueue_scripts', 'oliveb2b_enqueue_assets' );
 add_action( 'generate_before_header', 'oliveb2b_maybe_render_language_switcher' );
+add_action( 'generate_before_header', 'oliveb2b_maybe_render_user_quick_links' );
 add_action( 'admin_post_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
 add_action( 'admin_post_nopriv_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
 add_action( 'admin_post_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
@@ -284,6 +285,73 @@ function oliveb2b_maybe_render_language_switcher() {
         return;
     }
     echo oliveb2b_language_switcher_markup();
+}
+
+function oliveb2b_maybe_render_user_quick_links() {
+    if ( ! is_user_logged_in() ) {
+        return;
+    }
+
+    $links = oliveb2b_get_role_specific_quick_links();
+    if ( empty( $links ) ) {
+        return;
+    }
+
+    $items = array();
+    foreach ( $links as $link ) {
+        $items[] = sprintf(
+            '<li><a href="%1$s">%2$s</a></li>',
+            esc_url( $link['url'] ),
+            esc_html( $link['label'] )
+        );
+    }
+
+    echo '<nav class="oliveb2b-quick-links" aria-label="Marketplace quick links"><ul>' . implode( '', $items ) . '</ul></nav>';
+}
+
+function oliveb2b_get_role_specific_quick_links() {
+    $search_url      = oliveb2b_get_page_url_by_slug( 'marketplace-search', home_url( '/marketplace-search/' ) );
+    $submit_url      = oliveb2b_get_page_url_by_slug( 'marketplace-submit', home_url( '/marketplace-submit/' ) );
+    $dashboard_url   = oliveb2b_get_page_url_by_slug( 'marketplace-my-submissions', home_url( '/marketplace-my-submissions/' ) );
+    $links           = array();
+    $can_create_rfq  = current_user_can( 'create_olive_rfqs' );
+    $can_create_offer = current_user_can( 'create_olive_offers' );
+
+    $links[] = array(
+        'label' => 'Search',
+        'url'   => $search_url,
+    );
+
+    if ( $can_create_rfq ) {
+        $links[] = array(
+            'label' => 'Submit RFQ',
+            'url'   => $submit_url,
+        );
+    }
+
+    if ( $can_create_offer ) {
+        $links[] = array(
+            'label' => 'Submit Offer',
+            'url'   => $submit_url,
+        );
+    }
+
+    if ( $can_create_offer || $can_create_rfq ) {
+        $links[] = array(
+            'label' => 'My Submissions',
+            'url'   => $dashboard_url,
+        );
+    }
+
+    return apply_filters( 'oliveb2b_user_quick_links', $links );
+}
+
+function oliveb2b_get_page_url_by_slug( $slug, $fallback_url ) {
+    $page = get_page_by_path( $slug );
+    if ( $page ) {
+        return get_permalink( $page );
+    }
+    return $fallback_url;
 }
 
 function oliveb2b_language_switcher_shortcode() {

@@ -37,6 +37,10 @@ WordPress project for the OliveB2B B2B marketplace.
   - `[oliveb2b_rfq_form]`
   - `[oliveb2b_my_submissions]`
 
+## Logged-In Header Links
+- Quick links are rendered for logged-in users in the header.
+- Links are role/capability-based (`Search`, `Submit RFQ`, `Submit Offer`, `My Submissions`).
+
 ## Repo Structure
 - `docs/` reference documentation
 - `wp-content/themes/generatepress-child/` child theme
