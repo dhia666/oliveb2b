@@ -39,6 +39,15 @@
   gap: 8px;
 }
 
+.oliveb2b-search-form {
+  display: block;
+}
+
+.oliveb2b-search-bar {
+  display: flex;
+  gap: 8px;
+}
+
 .oliveb2b-search-bar input[type="search"] {
   flex: 1;
   padding: 10px 12px;
@@ -93,6 +102,26 @@
   background: #1f2937;
   color: #fff;
   cursor: pointer;
+}
+
+.oliveb2b-near-me-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.oliveb2b-geolocate {
+  width: auto !important;
+  padding: 8px 10px !important;
+  background: #374151 !important;
+  white-space: nowrap;
+}
+
+.oliveb2b-near-me-note {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
 }
 
 .oliveb2b-checkbox {
@@ -150,6 +179,20 @@
   margin: 0 0 10px;
   font-size: 13px;
   color: #4b5563;
+}
+
+.oliveb2b-card-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.oliveb2b-pill {
+  font-size: 11px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #111827;
 }
 
 .oliveb2b-card a {

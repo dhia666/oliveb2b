@@ -22,13 +22,13 @@
   - Legal name, display name
   - Summary, description
   - Contact email/phone (gated)
-  - Address, geo coordinates (for near-me radius)
-  - Verification flag, verification date
+  - Address, geo coordinates (meta: `olive_lat`, `olive_lng`)
+  - Verification flag, verification date (meta: `olive_verified`)
   - Employees range
   - Website URL
 - Offer
   - Title, summary, description
-  - Associated Supplier (relationship)
+  - Associated Supplier (meta relationship: `olive_supplier_id`)
   - Category/Industry
   - Countries served
   - Availability/lead time
