@@ -186,6 +186,7 @@ function oliveb2b_register_shortcodes() {
     add_shortcode( 'oliveb2b_offer_form', 'oliveb2b_offer_form_shortcode' );
     add_shortcode( 'oliveb2b_rfq_form', 'oliveb2b_rfq_form_shortcode' );
     add_shortcode( 'oliveb2b_my_submissions', 'oliveb2b_my_submissions_shortcode' );
+    add_shortcode( 'oliveb2b_my_inbox', 'oliveb2b_my_inbox_shortcode' );
 }
 
 function oliveb2b_register_cli_commands() {
@@ -330,6 +331,7 @@ function oliveb2b_get_role_specific_quick_links() {
     $search_url      = oliveb2b_get_page_url_by_slug( 'marketplace-search', home_url( '/marketplace-search/' ) );
     $submit_url      = oliveb2b_get_page_url_by_slug( 'marketplace-submit', home_url( '/marketplace-submit/' ) );
     $dashboard_url   = oliveb2b_get_page_url_by_slug( 'marketplace-my-submissions', home_url( '/marketplace-my-submissions/' ) );
+    $inbox_url       = oliveb2b_get_page_url_by_slug( 'marketplace-inbox', home_url( '/marketplace-inbox/' ) );
     $links           = array();
     $can_create_rfq  = current_user_can( 'create_olive_rfqs' );
     $can_create_offer = current_user_can( 'create_olive_offers' );
@@ -357,6 +359,10 @@ function oliveb2b_get_role_specific_quick_links() {
         $links[] = array(
             'label' => 'My Submissions',
             'url'   => $dashboard_url,
+        );
+        $links[] = array(
+            'label' => 'Inbox',
+            'url'   => $inbox_url,
         );
     }
 
@@ -649,6 +655,94 @@ function oliveb2b_can_user_interact_with_post( $user_id, $post ) {
     }
 
     return false;
+}
+
+function oliveb2b_my_inbox_shortcode() {
+    if ( ! is_user_logged_in() ) {
+        return '<section class="oliveb2b-submit"><h3>Inbox</h3><p><a href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Login to view your messages.</a></p></section>';
+    }
+
+    $tab       = isset( $_GET['olive_inbox_tab'] ) ? sanitize_key( wp_unslash( $_GET['olive_inbox_tab'] ) ) : 'received';
+    $tab       = in_array( $tab, array( 'received', 'sent' ), true ) ? $tab : 'received';
+    $base_url  = remove_query_arg( 'olive_inbox_tab' );
+    $received  = oliveb2b_get_inbox_query( 'received' );
+    $sent      = oliveb2b_get_inbox_query( 'sent' );
+
+    ob_start();
+    ?>
+    <section class="oliveb2b-submit oliveb2b-dashboard">
+        <h3>Inbox</h3>
+        <div class="oliveb2b-tabs" role="tablist">
+            <a class="oliveb2b-tab <?php echo 'received' === $tab ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'olive_inbox_tab', 'received', $base_url ) ); ?>">Received (<?php echo esc_html( $received->found_posts ); ?>)</a>
+            <a class="oliveb2b-tab <?php echo 'sent' === $tab ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'olive_inbox_tab', 'sent', $base_url ) ); ?>">Sent (<?php echo esc_html( $sent->found_posts ); ?>)</a>
+        </div>
+        <?php echo oliveb2b_render_inbox_items( 'received' === $tab ? $received : $sent, $tab ); ?>
+    </section>
+    <?php
+    wp_reset_postdata();
+    return ob_get_clean();
+}
+
+function oliveb2b_get_inbox_query( $tab ) {
+    $args = array(
+        'post_type'      => 'olive_interaction',
+        'post_status'    => 'private',
+        'posts_per_page' => 30,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+    );
+
+    if ( 'sent' === $tab ) {
+        $args['author'] = get_current_user_id();
+    } else {
+        $args['meta_query'] = array(
+            array(
+                'key'     => 'olive_recipient_user',
+                'value'   => (string) get_current_user_id(),
+                'compare' => '=',
+            ),
+        );
+    }
+
+    return new WP_Query( $args );
+}
+
+function oliveb2b_render_inbox_items( WP_Query $query, $tab ) {
+    if ( ! $query->have_posts() ) {
+        return '<p class="oliveb2b-empty">No messages in this tab.</p>';
+    }
+
+    ob_start();
+    echo '<div class="oliveb2b-dashboard-list">';
+    while ( $query->have_posts() ) {
+        $query->the_post();
+        $message_id      = get_the_ID();
+        $related_post_id = absint( get_post_meta( $message_id, 'olive_related_post_id', true ) );
+        $delivery_status = sanitize_text_field( (string) get_post_meta( $message_id, 'olive_delivery_status', true ) );
+        $sender_user     = get_user_by( 'id', get_post_field( 'post_author', $message_id ) );
+        $sender_name     = $sender_user ? $sender_user->display_name : 'Unknown sender';
+        ?>
+        <article class="oliveb2b-card">
+            <h4><?php echo esc_html( get_the_title() ); ?></h4>
+            <div class="oliveb2b-card-meta">
+                <span class="oliveb2b-pill"><?php echo esc_html( ucfirst( $tab ) ); ?></span>
+                <span class="oliveb2b-pill"><?php echo esc_html( get_the_date() ); ?></span>
+                <?php if ( 'sent' === $tab ) : ?>
+                    <span class="oliveb2b-pill"><?php echo esc_html( $delivery_status ? strtoupper( $delivery_status ) : 'SENT' ); ?></span>
+                <?php endif; ?>
+            </div>
+            <?php if ( 'received' === $tab ) : ?>
+                <p><strong>From:</strong> <?php echo esc_html( $sender_name ); ?></p>
+            <?php endif; ?>
+            <p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( get_the_content() ), 45 ) ); ?></p>
+            <?php if ( $related_post_id ) : ?>
+                <a class="oliveb2b-dashboard-link" href="<?php echo esc_url( get_permalink( $related_post_id ) ); ?>">Open related listing</a>
+            <?php endif; ?>
+        </article>
+        <?php
+    }
+    echo '</div>';
+    return ob_get_clean();
 }
 
 function oliveb2b_offer_form_shortcode() {
@@ -1560,7 +1654,20 @@ function oliveb2b_cli_seed_data( $args, $assoc_args ) {
         );
     }
 
+    $inbox_page = get_page_by_path( 'marketplace-inbox' );
+    if ( ! $inbox_page ) {
+        wp_insert_post(
+            array(
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => 'Inbox',
+                'post_name'    => 'marketplace-inbox',
+                'post_content' => "<!-- wp:shortcode -->\n[oliveb2b_my_inbox]\n<!-- /wp:shortcode -->",
+            )
+        );
+    }
+
     if ( defined( 'WP_CLI' ) && WP_CLI ) {
-        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, submit page, and dashboard page created.' );
+        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, submit page, dashboard page, and inbox page created.' );
     }
 }

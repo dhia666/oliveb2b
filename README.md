@@ -32,10 +32,12 @@ WordPress project for the OliveB2B B2B marketplace.
 - Search page: `http://localhost:8080/marketplace-search/`
 - Submit page: `http://localhost:8080/marketplace-submit/`
 - My submissions page: `http://localhost:8080/marketplace-my-submissions/`
+- Inbox page: `http://localhost:8080/marketplace-inbox/`
 - Gutenberg shortcodes:
   - `[oliveb2b_offer_form]`
   - `[oliveb2b_rfq_form]`
   - `[oliveb2b_my_submissions]`
+  - `[oliveb2b_my_inbox]`
 
 ## Logged-In Header Links
 - Quick links are rendered for logged-in users in the header.

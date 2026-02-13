@@ -27,3 +27,4 @@
   - Frontend shortcodes for submissions: `[oliveb2b_offer_form]`, `[oliveb2b_rfq_form]`.
   - Frontend dashboard for own content management: `[oliveb2b_my_submissions]`.
   - Frontend direct interaction form on listing pages with capability checks and direct email delivery.
+  - Frontend inbox for sent/received interaction records: `[oliveb2b_my_inbox]`.
