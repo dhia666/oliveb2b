@@ -22,6 +22,10 @@ add_action( 'init', 'oliveb2b_register_cli_commands' );
 add_action( 'init', 'oliveb2b_maybe_sync_roles' );
 add_action( 'wp_enqueue_scripts', 'oliveb2b_enqueue_assets' );
 add_action( 'generate_before_header', 'oliveb2b_maybe_render_language_switcher' );
+add_action( 'admin_post_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
+add_action( 'admin_post_nopriv_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
+add_action( 'admin_post_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
+add_action( 'admin_post_nopriv_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
 add_filter( 'the_content', 'oliveb2b_gate_single_content_for_guests', 20 );
 add_filter( 'the_title', 'oliveb2b_gate_single_supplier_title_for_guests', 20, 2 );
 
@@ -157,6 +161,8 @@ function oliveb2b_enqueue_assets() {
 function oliveb2b_register_shortcodes() {
     add_shortcode( 'oliveb2b_language_switcher', 'oliveb2b_language_switcher_shortcode' );
     add_shortcode( 'oliveb2b_search_results', 'oliveb2b_search_results_shortcode' );
+    add_shortcode( 'oliveb2b_offer_form', 'oliveb2b_offer_form_shortcode' );
+    add_shortcode( 'oliveb2b_rfq_form', 'oliveb2b_rfq_form_shortcode' );
 }
 
 function oliveb2b_register_cli_commands() {
@@ -413,6 +419,183 @@ function oliveb2b_gate_single_supplier_title_for_guests( $title, $post_id ) {
     }
 
     return 'Supplier profile (login to view)';
+}
+
+function oliveb2b_offer_form_shortcode() {
+    return oliveb2b_render_frontend_submission_form( 'offer' );
+}
+
+function oliveb2b_rfq_form_shortcode() {
+    return oliveb2b_render_frontend_submission_form( 'rfq' );
+}
+
+function oliveb2b_render_frontend_submission_form( $type ) {
+    $is_offer = 'offer' === $type;
+    $cap      = $is_offer ? 'create_olive_offers' : 'create_olive_rfqs';
+    $action   = $is_offer ? 'oliveb2b_submit_offer' : 'oliveb2b_submit_rfq';
+    $heading  = $is_offer ? 'Submit Offer' : 'Create RFQ';
+
+    $notice = oliveb2b_get_frontend_form_notice();
+    $html   = '<section class="oliveb2b-submit">';
+
+    if ( $notice ) {
+        $html .= sprintf(
+            '<div class="oliveb2b-form-notice %1$s">%2$s</div>',
+            esc_attr( $notice['class'] ),
+            esc_html( $notice['message'] )
+        );
+    }
+
+    if ( ! is_user_logged_in() ) {
+        $html .= '<h3>' . esc_html( $heading ) . '</h3>';
+        $html .= '<p><a href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Login to submit.</a></p></section>';
+        return $html;
+    }
+
+    if ( ! current_user_can( $cap ) ) {
+        $html .= '<h3>' . esc_html( $heading ) . '</h3>';
+        $html .= '<p>Your account does not have permission for this action.</p></section>';
+        return $html;
+    }
+
+    $html .= '<h3>' . esc_html( $heading ) . '</h3>';
+    $html .= '<form class="oliveb2b-submit-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+    $html .= wp_nonce_field( $action, 'oliveb2b_nonce', true, false );
+    $html .= '<input type="hidden" name="action" value="' . esc_attr( $action ) . '" />';
+    $html .= '<input type="hidden" name="redirect_to" value="' . esc_url( get_permalink() ) . '" />';
+    $html .= '<label>Title<input type="text" name="title" required maxlength="180" /></label>';
+    $html .= '<label>Summary<textarea name="summary" rows="3" required></textarea></label>';
+    $html .= '<label>Description<textarea name="description" rows="8" required></textarea></label>';
+    $html .= '<label>Country' . oliveb2b_taxonomy_select( 'olive_country', 'country', '' ) . '</label>';
+
+    if ( $is_offer ) {
+        $html .= '<label>Supplier type' . oliveb2b_taxonomy_select( 'olive_supplier_type', 'supplier_type', '' ) . '</label>';
+    }
+
+    $html .= '<button type="submit">' . esc_html( $heading ) . '</button>';
+    $html .= '</form></section>';
+
+    return $html;
+}
+
+function oliveb2b_get_frontend_form_notice() {
+    if ( ! isset( $_GET['olive_form_status'] ) ) {
+        return null;
+    }
+
+    $status = sanitize_key( wp_unslash( $_GET['olive_form_status'] ) );
+    $map    = array(
+        'created_offer'   => array( 'class' => 'is-success', 'message' => 'Offer submitted successfully.' ),
+        'created_rfq'     => array( 'class' => 'is-success', 'message' => 'RFQ submitted successfully.' ),
+        'login_required'  => array( 'class' => 'is-error', 'message' => 'Please login to submit.' ),
+        'no_permission'   => array( 'class' => 'is-error', 'message' => 'You do not have permission for this action.' ),
+        'invalid_nonce'   => array( 'class' => 'is-error', 'message' => 'Session expired. Please retry.' ),
+        'validation_error'=> array( 'class' => 'is-error', 'message' => 'Please fill all required fields.' ),
+        'save_error'      => array( 'class' => 'is-error', 'message' => 'Unable to save. Please retry.' ),
+    );
+
+    return isset( $map[ $status ] ) ? $map[ $status ] : null;
+}
+
+function oliveb2b_handle_offer_submission() {
+    oliveb2b_process_frontend_submission( 'offer' );
+}
+
+function oliveb2b_handle_rfq_submission() {
+    oliveb2b_process_frontend_submission( 'rfq' );
+}
+
+function oliveb2b_process_frontend_submission( $type ) {
+    $is_offer = 'offer' === $type;
+    $cap      = $is_offer ? 'create_olive_offers' : 'create_olive_rfqs';
+    $action   = $is_offer ? 'oliveb2b_submit_offer' : 'oliveb2b_submit_rfq';
+
+    $redirect = isset( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : home_url( '/' );
+    if ( ! $redirect ) {
+        $redirect = home_url( '/' );
+    }
+
+    if ( ! is_user_logged_in() ) {
+        wp_safe_redirect( add_query_arg( 'olive_form_status', 'login_required', $redirect ) );
+        exit;
+    }
+
+    if ( ! current_user_can( $cap ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_form_status', 'no_permission', $redirect ) );
+        exit;
+    }
+
+    $nonce = isset( $_POST['oliveb2b_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['oliveb2b_nonce'] ) ) : '';
+    if ( ! wp_verify_nonce( $nonce, $action ) ) {
+        wp_safe_redirect( add_query_arg( 'olive_form_status', 'invalid_nonce', $redirect ) );
+        exit;
+    }
+
+    $title       = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
+    $summary     = isset( $_POST['summary'] ) ? sanitize_textarea_field( wp_unslash( $_POST['summary'] ) ) : '';
+    $description = isset( $_POST['description'] ) ? wp_kses_post( wp_unslash( $_POST['description'] ) ) : '';
+    $country     = isset( $_POST['country'] ) ? sanitize_title( wp_unslash( $_POST['country'] ) ) : '';
+
+    if ( '' === $title || '' === $summary || '' === wp_strip_all_tags( $description ) || '' === $country ) {
+        wp_safe_redirect( add_query_arg( 'olive_form_status', 'validation_error', $redirect ) );
+        exit;
+    }
+
+    $post_type = $is_offer ? 'olive_offer' : 'olive_rfq';
+
+    $post_id = wp_insert_post(
+        array(
+            'post_type'    => $post_type,
+            'post_status'  => 'publish',
+            'post_title'   => $title,
+            'post_excerpt' => $summary,
+            'post_content' => $description,
+            'post_author'  => get_current_user_id(),
+        ),
+        true
+    );
+
+    if ( is_wp_error( $post_id ) || ! $post_id ) {
+        wp_safe_redirect( add_query_arg( 'olive_form_status', 'save_error', $redirect ) );
+        exit;
+    }
+
+    wp_set_post_terms( $post_id, array( $country ), 'olive_country', false );
+
+    if ( $is_offer ) {
+        $supplier_type = isset( $_POST['supplier_type'] ) ? sanitize_title( wp_unslash( $_POST['supplier_type'] ) ) : '';
+        if ( '' !== $supplier_type ) {
+            wp_set_post_terms( $post_id, array( $supplier_type ), 'olive_supplier_type', false );
+        }
+
+        update_post_meta( $post_id, 'olive_verified', '0' );
+        $supplier_id = oliveb2b_find_current_user_supplier_profile_id();
+        if ( $supplier_id ) {
+            update_post_meta( $post_id, 'olive_supplier_id', (string) $supplier_id );
+            update_post_meta( $post_id, 'olive_lat', (string) get_post_meta( $supplier_id, 'olive_lat', true ) );
+            update_post_meta( $post_id, 'olive_lng', (string) get_post_meta( $supplier_id, 'olive_lng', true ) );
+        }
+        $status = 'created_offer';
+    } else {
+        $status = 'created_rfq';
+    }
+
+    wp_safe_redirect( add_query_arg( 'olive_form_status', $status, $redirect ) );
+    exit;
+}
+
+function oliveb2b_find_current_user_supplier_profile_id() {
+    $supplier_ids = get_posts(
+        array(
+            'post_type'      => 'olive_supplier',
+            'post_status'    => 'publish',
+            'author'         => get_current_user_id(),
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        )
+    );
+
+    return ! empty( $supplier_ids ) ? (int) $supplier_ids[0] : 0;
 }
 
 function oliveb2b_search_results_shortcode() {
@@ -882,7 +1065,20 @@ function oliveb2b_cli_seed_data( $args, $assoc_args ) {
         );
     }
 
+    $submit_page = get_page_by_path( 'marketplace-submit' );
+    if ( ! $submit_page ) {
+        wp_insert_post(
+            array(
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => 'Marketplace Submit',
+                'post_name'    => 'marketplace-submit',
+                'post_content' => "<!-- wp:shortcode -->\n[oliveb2b_offer_form]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[oliveb2b_rfq_form]\n<!-- /wp:shortcode -->",
+            )
+        );
+    }
+
     if ( defined( 'WP_CLI' ) && WP_CLI ) {
-        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, and search page created.' );
+        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, and submit page created.' );
     }
 }

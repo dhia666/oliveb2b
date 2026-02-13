@@ -205,6 +205,66 @@
   color: #6b7280;
 }
 
+.oliveb2b-submit {
+  margin: 24px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 16px;
+}
+
+.oliveb2b-submit h3 {
+  margin: 0 0 12px;
+}
+
+.oliveb2b-submit-form {
+  display: grid;
+  gap: 12px;
+}
+
+.oliveb2b-submit-form label {
+  display: block;
+  font-size: 13px;
+  color: #111827;
+}
+
+.oliveb2b-submit-form input[type="text"],
+.oliveb2b-submit-form textarea,
+.oliveb2b-submit-form select {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.oliveb2b-submit-form button {
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #fff;
+  background: #111827;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.oliveb2b-form-notice {
+  margin-bottom: 12px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.oliveb2b-form-notice.is-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.oliveb2b-form-notice.is-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 @media (max-width: 900px) {
   .oliveb2b-search-grid {
     grid-template-columns: 1fr;
