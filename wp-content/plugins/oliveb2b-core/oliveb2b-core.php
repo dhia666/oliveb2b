@@ -2,21 +2,28 @@
 /**
  * Plugin Name: OliveB2B Core
  * Description: Core functionality for OliveB2B (CPTs, taxonomies, search UI, language switcher).
- * Version: 0.2.0
+ * Version: 0.3.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const OLIVEB2B_VERSION = '0.2.0';
+const OLIVEB2B_VERSION = '0.3.0';
+const OLIVEB2B_ROLE_SYNC_VERSION = '1';
+
+register_activation_hook( __FILE__, 'oliveb2b_activate_plugin' );
+register_deactivation_hook( __FILE__, 'oliveb2b_deactivate_plugin' );
 
 add_action( 'init', 'oliveb2b_register_cpts' );
 add_action( 'init', 'oliveb2b_register_taxonomies' );
 add_action( 'init', 'oliveb2b_register_shortcodes' );
 add_action( 'init', 'oliveb2b_register_cli_commands' );
+add_action( 'init', 'oliveb2b_maybe_sync_roles' );
 add_action( 'wp_enqueue_scripts', 'oliveb2b_enqueue_assets' );
 add_action( 'generate_before_header', 'oliveb2b_maybe_render_language_switcher' );
+add_filter( 'the_content', 'oliveb2b_gate_single_content_for_guests', 20 );
+add_filter( 'the_title', 'oliveb2b_gate_single_supplier_title_for_guests', 20, 2 );
 
 function oliveb2b_register_cpts() {
     register_post_type(
@@ -32,6 +39,9 @@ function oliveb2b_register_cpts() {
             'menu_icon' => 'dashicons-building',
             'supports' => array( 'title', 'editor', 'excerpt', 'thumbnail', 'author' ),
             'rewrite' => array( 'slug' => 'suppliers' ),
+            'capability_type' => array( 'olive_supplier', 'olive_suppliers' ),
+            'capabilities' => oliveb2b_get_post_type_capabilities( 'olive_supplier', 'olive_suppliers' ),
+            'map_meta_cap' => true,
         )
     );
 
@@ -48,6 +58,9 @@ function oliveb2b_register_cpts() {
             'menu_icon' => 'dashicons-megaphone',
             'supports' => array( 'title', 'editor', 'excerpt', 'thumbnail', 'author' ),
             'rewrite' => array( 'slug' => 'offers' ),
+            'capability_type' => array( 'olive_offer', 'olive_offers' ),
+            'capabilities' => oliveb2b_get_post_type_capabilities( 'olive_offer', 'olive_offers' ),
+            'map_meta_cap' => true,
         )
     );
 
@@ -64,6 +77,9 @@ function oliveb2b_register_cpts() {
             'menu_icon' => 'dashicons-clipboard',
             'supports' => array( 'title', 'editor', 'excerpt', 'author' ),
             'rewrite' => array( 'slug' => 'rfq' ),
+            'capability_type' => array( 'olive_rfq', 'olive_rfqs' ),
+            'capabilities' => oliveb2b_get_post_type_capabilities( 'olive_rfq', 'olive_rfqs' ),
+            'map_meta_cap' => true,
         )
     );
 }
@@ -147,6 +163,108 @@ function oliveb2b_register_cli_commands() {
     if ( defined( 'WP_CLI' ) && WP_CLI ) {
         WP_CLI::add_command( 'oliveb2b seed', 'oliveb2b_cli_seed_data' );
     }
+}
+
+function oliveb2b_activate_plugin() {
+    oliveb2b_register_cpts();
+    oliveb2b_register_taxonomies();
+    oliveb2b_sync_roles_and_caps();
+    flush_rewrite_rules();
+}
+
+function oliveb2b_deactivate_plugin() {
+    flush_rewrite_rules();
+}
+
+function oliveb2b_maybe_sync_roles() {
+    $synced_version = get_option( 'oliveb2b_role_sync_version', '' );
+    if ( OLIVEB2B_ROLE_SYNC_VERSION !== $synced_version ) {
+        oliveb2b_sync_roles_and_caps();
+        update_option( 'oliveb2b_role_sync_version', OLIVEB2B_ROLE_SYNC_VERSION );
+    }
+}
+
+function oliveb2b_sync_roles_and_caps() {
+    add_role(
+        'olive_supplier_enterprise',
+        'Supplier (Enterprise)',
+        array(
+            'read' => true,
+            'upload_files' => true,
+        )
+    );
+    add_role(
+        'olive_supplier_private',
+        'Supplier (Private)',
+        array(
+            'read' => true,
+            'upload_files' => true,
+        )
+    );
+    add_role(
+        'olive_professional',
+        'Professional',
+        array(
+            'read' => true,
+            'upload_files' => true,
+        )
+    );
+    add_role(
+        'olive_buyer',
+        'Buyer',
+        array(
+            'read' => true,
+        )
+    );
+
+    $all_caps = array_merge(
+        oliveb2b_get_post_type_capability_values( 'olive_supplier', 'olive_suppliers' ),
+        oliveb2b_get_post_type_capability_values( 'olive_offer', 'olive_offers' ),
+        oliveb2b_get_post_type_capability_values( 'olive_rfq', 'olive_rfqs' )
+    );
+
+    $rfq_caps   = oliveb2b_get_post_type_capability_values( 'olive_rfq', 'olive_rfqs' );
+    $offer_caps = oliveb2b_get_post_type_capability_values( 'olive_offer', 'olive_offers' );
+
+    oliveb2b_grant_caps_to_role( 'administrator', $all_caps );
+    oliveb2b_grant_caps_to_role( 'olive_buyer', $rfq_caps );
+    oliveb2b_grant_caps_to_role( 'olive_supplier_enterprise', $offer_caps );
+    oliveb2b_grant_caps_to_role( 'olive_supplier_private', $offer_caps );
+    oliveb2b_grant_caps_to_role( 'olive_professional', $offer_caps );
+}
+
+function oliveb2b_grant_caps_to_role( $role_name, $caps ) {
+    $role = get_role( $role_name );
+    if ( ! $role ) {
+        return;
+    }
+
+    foreach ( $caps as $cap ) {
+        $role->add_cap( $cap );
+    }
+}
+
+function oliveb2b_get_post_type_capabilities( $singular, $plural ) {
+    return array(
+        'edit_post'              => 'edit_' . $singular,
+        'read_post'              => 'read_' . $singular,
+        'delete_post'            => 'delete_' . $singular,
+        'edit_posts'             => 'edit_' . $plural,
+        'edit_others_posts'      => 'edit_others_' . $plural,
+        'publish_posts'          => 'publish_' . $plural,
+        'read_private_posts'     => 'read_private_' . $plural,
+        'delete_posts'           => 'delete_' . $plural,
+        'delete_private_posts'   => 'delete_private_' . $plural,
+        'delete_published_posts' => 'delete_published_' . $plural,
+        'delete_others_posts'    => 'delete_others_' . $plural,
+        'edit_private_posts'     => 'edit_private_' . $plural,
+        'edit_published_posts'   => 'edit_published_' . $plural,
+        'create_posts'           => 'create_' . $plural,
+    );
+}
+
+function oliveb2b_get_post_type_capability_values( $singular, $plural ) {
+    return array_values( oliveb2b_get_post_type_capabilities( $singular, $plural ) );
 }
 
 function oliveb2b_maybe_render_language_switcher() {
@@ -259,6 +377,42 @@ function oliveb2b_get_current_language_code() {
     );
 
     return in_array( $candidate, $codes, true ) ? $candidate : 'en';
+}
+
+function oliveb2b_gate_single_content_for_guests( $content ) {
+    if ( is_admin() || is_user_logged_in() ) {
+        return $content;
+    }
+
+    if ( ! is_singular( array( 'olive_supplier', 'olive_offer', 'olive_rfq' ) ) || ! in_the_loop() || ! is_main_query() ) {
+        return $content;
+    }
+
+    $post_id        = get_the_ID();
+    $summary_source = has_excerpt( $post_id ) ? get_the_excerpt( $post_id ) : wp_trim_words( wp_strip_all_tags( $content ), 45 );
+    $login_url      = wp_login_url( get_permalink( $post_id ) );
+
+    return sprintf(
+        '<p>%1$s</p><p><a href="%2$s">Login to view full details and contact information.</a></p>',
+        esc_html( $summary_source ),
+        esc_url( $login_url )
+    );
+}
+
+function oliveb2b_gate_single_supplier_title_for_guests( $title, $post_id ) {
+    if ( is_admin() || is_user_logged_in() ) {
+        return $title;
+    }
+
+    if ( (int) $post_id !== (int) get_queried_object_id() ) {
+        return $title;
+    }
+
+    if ( ! is_singular( 'olive_supplier' ) ) {
+        return $title;
+    }
+
+    return 'Supplier profile (login to view)';
 }
 
 function oliveb2b_search_results_shortcode() {

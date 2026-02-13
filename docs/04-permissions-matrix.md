@@ -19,3 +19,8 @@
 ## Notes
 - No admin intervention in buyer-supplier interactions.
 - No payments or commissions.
+- Implementation status:
+  - Roles created in plugin: `olive_supplier_enterprise`, `olive_supplier_private`, `olive_professional`, `olive_buyer`.
+  - Offer creation capability: `create_olive_offers` granted to supplier/professional roles + admin.
+  - RFQ creation capability: `create_olive_rfqs` granted to buyer role + admin.
+  - Guest gating on single Supplier/Offer/RFQ pages: summary only + login prompt.
