@@ -182,6 +182,7 @@ function oliveb2b_enqueue_assets() {
 
 function oliveb2b_register_shortcodes() {
     add_shortcode( 'oliveb2b_language_switcher', 'oliveb2b_language_switcher_shortcode' );
+    add_shortcode( 'oliveb2b_landing', 'oliveb2b_landing_shortcode' );
     add_shortcode( 'oliveb2b_search_results', 'oliveb2b_search_results_shortcode' );
     add_shortcode( 'oliveb2b_offer_form', 'oliveb2b_offer_form_shortcode' );
     add_shortcode( 'oliveb2b_rfq_form', 'oliveb2b_rfq_form_shortcode' );
@@ -375,6 +376,74 @@ function oliveb2b_get_page_url_by_slug( $slug, $fallback_url ) {
         return get_permalink( $page );
     }
     return $fallback_url;
+}
+
+function oliveb2b_landing_shortcode() {
+    $search_url      = oliveb2b_get_page_url_by_slug( 'marketplace-search', home_url( '/marketplace-search/' ) );
+    $submit_url      = oliveb2b_get_page_url_by_slug( 'marketplace-submit', home_url( '/marketplace-submit/' ) );
+    $dashboard_url   = oliveb2b_get_page_url_by_slug( 'marketplace-my-submissions', home_url( '/marketplace-my-submissions/' ) );
+    $inbox_url       = oliveb2b_get_page_url_by_slug( 'marketplace-inbox', home_url( '/marketplace-inbox/' ) );
+    $can_create_rfq  = current_user_can( 'create_olive_rfqs' );
+    $can_create_offer = current_user_can( 'create_olive_offers' );
+
+    ob_start();
+    ?>
+    <section class="oliveb2b-landing">
+        <div class="oliveb2b-hero">
+            <p class="oliveb2b-eyebrow">B2B Marketplace</p>
+            <h1>Find suppliers. Publish offers. Close RFQs directly.</h1>
+            <p class="oliveb2b-hero-copy">OliveB2B connects buyers, suppliers, and professionals with direct interaction and no commissions.</p>
+            <div class="oliveb2b-hero-cta">
+                <a class="oliveb2b-btn oliveb2b-btn-primary" href="<?php echo esc_url( $search_url ); ?>">Search marketplace</a>
+                <a class="oliveb2b-btn oliveb2b-btn-muted" href="<?php echo esc_url( $submit_url ); ?>">Submit RFQ / Offer</a>
+            </div>
+        </div>
+
+        <div class="oliveb2b-role-grid">
+            <article>
+                <h3>For Buyers</h3>
+                <p>Create RFQs, receive direct responses, and compare suppliers quickly.</p>
+            </article>
+            <article>
+                <h3>For Suppliers</h3>
+                <p>Publish offers, respond to buyer demand, and manage submissions from one dashboard.</p>
+            </article>
+            <article>
+                <h3>For Professionals</h3>
+                <p>Join transactions as service providers with direct visibility to market demand.</p>
+            </article>
+        </div>
+
+        <?php if ( is_user_logged_in() ) : ?>
+            <div class="oliveb2b-logged-strip">
+                <h2>Welcome back</h2>
+                <div class="oliveb2b-strip-links">
+                    <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $dashboard_url ); ?>">My submissions</a>
+                    <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $inbox_url ); ?>">Inbox</a>
+                    <?php if ( $can_create_rfq || $can_create_offer ) : ?>
+                        <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $submit_url ); ?>">Create now</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="oliveb2b-feature-grid">
+            <article>
+                <h4>No admin mediation</h4>
+                <p>Interactions happen directly between marketplace members.</p>
+            </article>
+            <article>
+                <h4>No commissions</h4>
+                <p>Free marketplace model with transparent participation.</p>
+            </article>
+            <article>
+                <h4>Permission-based visibility</h4>
+                <p>Guests see summaries, logged-in users access full details and direct contact flows.</p>
+            </article>
+        </div>
+    </section>
+    <?php
+    return ob_get_clean();
 }
 
 function oliveb2b_language_switcher_shortcode() {
@@ -1667,7 +1736,28 @@ function oliveb2b_cli_seed_data( $args, $assoc_args ) {
         );
     }
 
+    $home_page = get_page_by_path( 'home' );
+    if ( ! $home_page ) {
+        $home_page_id = wp_insert_post(
+            array(
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => 'Home',
+                'post_name'    => 'home',
+                'post_content' => "<!-- wp:shortcode -->\n[oliveb2b_landing]\n<!-- /wp:shortcode -->",
+            )
+        );
+        if ( $home_page_id && ! is_wp_error( $home_page_id ) ) {
+            $home_page = get_post( $home_page_id );
+        }
+    }
+
+    if ( $home_page ) {
+        update_option( 'page_on_front', (int) $home_page->ID );
+        update_option( 'show_on_front', 'page' );
+    }
+
     if ( defined( 'WP_CLI' ) && WP_CLI ) {
-        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, search page, submit page, dashboard page, and inbox page created.' );
+        WP_CLI::success( 'Seed complete: suppliers, offers, RFQs, marketplace pages, and landing home page created.' );
     }
 }
