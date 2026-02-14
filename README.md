@@ -45,6 +45,7 @@ WordPress project for the OliveB2B B2B marketplace.
 - Quick links are rendered for logged-in users in the header.
 - Links are role/capability-based (`Search`, `Submit RFQ`, `Submit Offer`, `My Submissions`).
 - Landing page v2 sections are powered by `[oliveb2b_landing]` and styled in plugin CSS.
+- Landing page v3 includes trust strip, FAQ, and homepage SEO alignment hooks.
 
 ## Direct Interaction
 - Logged-in users can interact directly on single listing pages:

@@ -23,6 +23,9 @@ add_action( 'init', 'oliveb2b_maybe_sync_roles' );
 add_action( 'wp_enqueue_scripts', 'oliveb2b_enqueue_assets' );
 add_action( 'generate_before_header', 'oliveb2b_maybe_render_language_switcher' );
 add_action( 'generate_before_header', 'oliveb2b_maybe_render_user_quick_links' );
+add_filter( 'rank_math/frontend/title', 'oliveb2b_filter_rank_math_home_title' );
+add_filter( 'rank_math/frontend/description', 'oliveb2b_filter_rank_math_home_description' );
+add_action( 'wp_head', 'oliveb2b_output_home_meta_fallback', 5 );
 add_action( 'admin_post_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
 add_action( 'admin_post_nopriv_oliveb2b_submit_offer', 'oliveb2b_handle_offer_submission' );
 add_action( 'admin_post_oliveb2b_submit_rfq', 'oliveb2b_handle_rfq_submission' );
@@ -419,6 +422,16 @@ function oliveb2b_landing_shortcode() {
             </article>
         </div>
 
+        <div class="oliveb2b-trust-strip">
+            <span>Trusted workflow</span>
+            <ul>
+                <li>RFQ driven sourcing</li>
+                <li>Verified listing support</li>
+                <li>Direct messaging</li>
+                <li>No commissions</li>
+            </ul>
+        </div>
+
         <div class="oliveb2b-process-grid">
             <article>
                 <span>01</span>
@@ -473,9 +486,57 @@ function oliveb2b_landing_shortcode() {
                 <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $submit_url ); ?>">Publish now</a>
             </div>
         </div>
+
+        <div class="oliveb2b-faq">
+            <h3>Frequently Asked Questions</h3>
+            <details>
+                <summary>Do you take commissions on deals?</summary>
+                <p>No. OliveB2B does not process payments and does not apply commissions.</p>
+            </details>
+            <details>
+                <summary>Who can post RFQs and Offers?</summary>
+                <p>Buyers create RFQs. Suppliers and professionals create Offers, based on role capabilities.</p>
+            </details>
+            <details>
+                <summary>Can guests see supplier contacts?</summary>
+                <p>No. Guests see summaries only. Full identity and contact details require login.</p>
+            </details>
+        </div>
     </section>
     <?php
     return ob_get_clean();
+}
+
+function oliveb2b_get_home_seo_title() {
+    return 'OliveB2B | B2B Olive Oil Marketplace for Buyers and Suppliers';
+}
+
+function oliveb2b_get_home_seo_description() {
+    return 'Search verified suppliers, publish RFQs, and connect directly with olive oil professionals on OliveB2B.';
+}
+
+function oliveb2b_filter_rank_math_home_title( $title ) {
+    if ( is_front_page() ) {
+        return oliveb2b_get_home_seo_title();
+    }
+    return $title;
+}
+
+function oliveb2b_filter_rank_math_home_description( $description ) {
+    if ( is_front_page() ) {
+        return oliveb2b_get_home_seo_description();
+    }
+    return $description;
+}
+
+function oliveb2b_output_home_meta_fallback() {
+    if ( ! is_front_page() || defined( 'RANK_MATH_VERSION' ) ) {
+        return;
+    }
+
+    echo '<meta name="description" content="' . esc_attr( oliveb2b_get_home_seo_description() ) . '" />' . "\n";
+    echo '<meta property="og:title" content="' . esc_attr( oliveb2b_get_home_seo_title() ) . '" />' . "\n";
+    echo '<meta property="og:description" content="' . esc_attr( oliveb2b_get_home_seo_description() ) . '" />' . "\n";
 }
 
 function oliveb2b_language_switcher_shortcode() {

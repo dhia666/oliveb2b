@@ -145,6 +145,40 @@
   font-size: 14px;
 }
 
+.oliveb2b-trust-strip {
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+
+.oliveb2b-trust-strip > span {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.oliveb2b-trust-strip ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.oliveb2b-trust-strip li {
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #0f172a;
+}
+
 .oliveb2b-logged-strip {
   border: 1px solid #d1d5db;
   border-radius: 12px;
@@ -237,6 +271,37 @@
 .oliveb2b-final-cta p {
   margin: 0 0 12px;
   color: #334155;
+}
+
+.oliveb2b-faq {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+}
+
+.oliveb2b-faq h3 {
+  margin: 0 0 10px;
+}
+
+.oliveb2b-faq details {
+  border-top: 1px solid #e5e7eb;
+  padding: 10px 0;
+}
+
+.oliveb2b-faq details:first-of-type {
+  border-top: none;
+}
+
+.oliveb2b-faq summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.oliveb2b-faq p {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 14px;
 }
 
 .oliveb2b-quick-links {
@@ -555,6 +620,10 @@
   .oliveb2b-role-grid,
   .oliveb2b-process-grid,
   .oliveb2b-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .oliveb2b-trust-strip ul {
     grid-template-columns: 1fr;
   }
 
