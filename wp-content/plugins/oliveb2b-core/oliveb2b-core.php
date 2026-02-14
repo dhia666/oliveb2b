@@ -391,37 +391,60 @@ function oliveb2b_landing_shortcode() {
     <section class="oliveb2b-landing">
         <div class="oliveb2b-hero">
             <p class="oliveb2b-eyebrow">B2B Marketplace</p>
-            <h1>Find suppliers. Publish offers. Close RFQs directly.</h1>
-            <p class="oliveb2b-hero-copy">OliveB2B connects buyers, suppliers, and professionals with direct interaction and no commissions.</p>
+            <h1>Find verified partners, publish live demand, and close RFQs directly.</h1>
+            <p class="oliveb2b-hero-copy">OliveB2B is built for buyers, suppliers, and professionals who need dense search, direct contact, and zero commission friction.</p>
             <div class="oliveb2b-hero-cta">
-                <a class="oliveb2b-btn oliveb2b-btn-primary" href="<?php echo esc_url( $search_url ); ?>">Search marketplace</a>
-                <a class="oliveb2b-btn oliveb2b-btn-muted" href="<?php echo esc_url( $submit_url ); ?>">Submit RFQ / Offer</a>
+                <a class="oliveb2b-btn oliveb2b-btn-primary" href="<?php echo esc_url( $search_url ); ?>">Start searching</a>
+                <a class="oliveb2b-btn oliveb2b-btn-muted" href="<?php echo esc_url( $submit_url ); ?>">Publish RFQ / Offer</a>
+            </div>
+            <div class="oliveb2b-hero-stats">
+                <div><strong>22</strong><span>Languages</span></div>
+                <div><strong>5</strong><span>User roles</span></div>
+                <div><strong>0%</strong><span>Commissions</span></div>
             </div>
         </div>
 
         <div class="oliveb2b-role-grid">
             <article>
-                <h3>For Buyers</h3>
-                <p>Create RFQs, receive direct responses, and compare suppliers quickly.</p>
+                <h3>Buyers</h3>
+                <p>Post RFQs and receive direct responses from suppliers and professionals.</p>
             </article>
             <article>
-                <h3>For Suppliers</h3>
-                <p>Publish offers, respond to buyer demand, and manage submissions from one dashboard.</p>
+                <h3>Suppliers</h3>
+                <p>Publish offers, answer RFQs, and manage leads without platform mediation.</p>
             </article>
             <article>
-                <h3>For Professionals</h3>
-                <p>Join transactions as service providers with direct visibility to market demand.</p>
+                <h3>Professionals</h3>
+                <p>Expose logistics, packaging, certification, and related B2B services.</p>
+            </article>
+        </div>
+
+        <div class="oliveb2b-process-grid">
+            <article>
+                <span>01</span>
+                <h4>Discover</h4>
+                <p>Use marketplace filters by country, supplier type, employees, and verified status.</p>
+            </article>
+            <article>
+                <span>02</span>
+                <h4>Engage</h4>
+                <p>Contact listing owners directly from offers, suppliers, and RFQs.</p>
+            </article>
+            <article>
+                <span>03</span>
+                <h4>Manage</h4>
+                <p>Track submissions and conversations in the frontend dashboard and inbox.</p>
             </article>
         </div>
 
         <?php if ( is_user_logged_in() ) : ?>
             <div class="oliveb2b-logged-strip">
-                <h2>Welcome back</h2>
+                <h2>Workspace shortcuts</h2>
                 <div class="oliveb2b-strip-links">
                     <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $dashboard_url ); ?>">My submissions</a>
                     <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $inbox_url ); ?>">Inbox</a>
                     <?php if ( $can_create_rfq || $can_create_offer ) : ?>
-                        <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $submit_url ); ?>">Create now</a>
+                        <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $submit_url ); ?>">Create listing</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -429,17 +452,26 @@ function oliveb2b_landing_shortcode() {
 
         <div class="oliveb2b-feature-grid">
             <article>
-                <h4>No admin mediation</h4>
-                <p>Interactions happen directly between marketplace members.</p>
+                <h4>Direct interaction</h4>
+                <p>No admin relay between buyer demand and supplier response.</p>
             </article>
             <article>
-                <h4>No commissions</h4>
-                <p>Free marketplace model with transparent participation.</p>
+                <h4>Permission-aware visibility</h4>
+                <p>Guests get summaries; members unlock identities and detailed contact flows.</p>
             </article>
             <article>
-                <h4>Permission-based visibility</h4>
-                <p>Guests see summaries, logged-in users access full details and direct contact flows.</p>
+                <h4>Operational transparency</h4>
+                <p>Submission ownership, inbox tracking, and role-based capabilities are explicit.</p>
             </article>
+        </div>
+
+        <div class="oliveb2b-final-cta">
+            <h3>Ready to start?</h3>
+            <p>Go to search for immediate discovery or publish a listing in minutes.</p>
+            <div class="oliveb2b-strip-links">
+                <a class="oliveb2b-btn oliveb2b-btn-primary" href="<?php echo esc_url( $search_url ); ?>">Search now</a>
+                <a class="oliveb2b-btn oliveb2b-btn-light" href="<?php echo esc_url( $submit_url ); ?>">Publish now</a>
+            </div>
         </div>
     </section>
     <?php
